@@ -1,108 +1,75 @@
-# Federated AI – Privacy-Preserving Financial Fraud Detection & Investigation Platform
+# FraudGuard AI – Federated AI Fraud Detection Platform
 
-> **Disclaimer.** This is an **academic prototype**. It is **not** an official JPMorgan Chase
-> product and is not affiliated with, endorsed by, or derived from any JPMorgan Chase system. It is
-> *inspired by* publicly documented federated-learning research for financial crime detection, such
-> as JPMorgan's Project AIKYA. All data is synthetic. Nothing here is production-ready or
-> suitable for real financial decisions.
+> **Academic prototype disclaimer:** This project is an academic prototype inspired by publicly documented research in federated learning for financial crime detection. It is not affiliated with, endorsed by, or derived from JPMorgan Chase. All data is synthetic, and the platform is not intended for production financial decisions.
 
-## What it does
+## Overview
 
-Three simulated, independent institutions — **Bank Alpha**, **Bank Beta**, **Bank Gamma** — each
-hold their own local transaction data. They jointly train a fraud-detection model with federated
-learning (Flower + PyTorch). **Raw training records never reach the central coordinator**; only model
-parameter updates do. Investigators use a web platform to review alerts, explore transaction graphs,
-read model explanations, and ask an AI assistant (Gemini via the backend, with a rule-based fallback).
+FraudGuard AI is a privacy-focused financial fraud detection and investigation platform built around federated learning.
+
+It uses three simulated independent institutions:
+
+- Bank Alpha
+- Bank Beta
+- Bank Gamma
+
+Each institution keeps its transaction data locally. The federated learning approach allows institutions to collaboratively train a fraud detection model by sharing model parameter updates rather than raw transaction records.
+
+The platform also provides an investigator-facing web application for reviewing alerts, managing investigations, and exploring fraud-related information.
 
 ## Architecture
 
-```
-┌───────────────┐   REST/JWT   ┌──────────────┐        ┌────────────┐
-│ React + TS UI │ ───────────► │   FastAPI    │ ─────► │ PostgreSQL │  users, alerts, cases,
-│ (investigator)│              │   backend    │        └────────────┘  audit log, FL metrics
-└───────────────┘              └──────┬───────┘
-                                      │ read-only
-                               ┌──────▼───────┐
-                               │ model registry│◄──── writes global model ────┐
-                               └──────────────┘                              │
-                                                                  ┌──────────┴─────────┐
- ┌──────────────┐  parameters only  ┌──────────────────┐          │  Flower coordinator │
- │ Bank Alpha   │◄─────────────────►│                  │◄────────►│     (fl-server)     │
- │ local data ✔ │                   │   gRPC (Flower)  │          │ no access to data   │
- ├──────────────┤                   │                  │          └────────────────────┘
- │ Bank Beta    │◄─────────────────►│                  │
- ├──────────────┤                   │                  │
- │ Bank Gamma   │◄─────────────────►│                  │
- └──────────────┘                   └──────────────────┘
- Each bank scores its own transactions locally and sends only alert-level metadata
- (pseudonymised entity hashes, score, explanation) to the platform.
-```
+- **Frontend:** React and TypeScript
+- **Backend:** FastAPI
+- **Database:** PostgreSQL
+- **Machine Learning:** PyTorch and Flower
+- **AI Assistant:** Google Gemini integration with a rule-based fallback
 
-The privacy boundary is enforced at three levels: Docker volume mounts (each client mounts only its own
-data, read-only; the coordinator mounts none), code guards (`fraud_ai/utils/privacy.py`), and tests.
+The intended architecture separates bank-level training data from the central coordinator. Only model updates are exchanged during federated training.
 
-Details: [`docs/architecture/overview.md`](docs/architecture/overview.md) ·
-[`docs/security/privacy-model.md`](docs/security/privacy-model.md)
+## Tech Stack
 
-## Tech stack
-
-| Area | Tools |
+| Area | Technologies |
 |---|---|
-| Frontend | React, TypeScript, Vite, Tailwind CSS, React Router, Axios, TanStack Query, Recharts, Lucide, Cytoscape.js |
-| Backend | Python, FastAPI, SQLAlchemy 2, Pydantic v2, PostgreSQL, Alembic, JWT (PyJWT) |
-| AI/ML | PyTorch, Flower, scikit-learn, XGBoost, NetworkX, Captum, Pandas, NumPy |
-| Assistant | Google Gemini (server-side only) with rule-based fallback |
-| Testing | Pytest, Vitest + Testing Library |
+| Frontend | React, TypeScript, Vite, Tailwind CSS |
+| Backend | Python, FastAPI, SQLAlchemy, Pydantic |
+| Database | PostgreSQL, Alembic |
+| AI/ML | PyTorch, Flower, scikit-learn, XGBoost |
+| Assistant | Google Gemini |
+| Testing | Pytest, Vitest |
 | Deployment | Docker, Docker Compose |
 
-## Project layout
+## Project Structure
 
-```
-backend/      FastAPI app (core, db, models, schemas, api/v1, services, repositories) + Alembic + tests
-ai_engine/    fraud_ai package (data, federated, models, graph, explainability, evaluation) + tests
-              data/banks/{alpha,beta,gamma}/  isolated local data (gitignored)
-frontend/     React app (api, components, pages, hooks, types, lib, routes, tests)
-database/     init SQL and seeds
-scripts/      helper scripts          config/   shared configuration
-docs/         architecture, api, ml, security, ADRs
-tests/        cross-service integration and e2e tests
-```
-
-## Quick start
-
-```bash
-cp .env.example .env              # then set SECRET_KEY and POSTGRES_PASSWORD
-docker compose up --build         # postgres + backend (:8000) + frontend (:5173)
-# open http://localhost:5173/status   and   http://localhost:8000/docs
-docker compose --profile federated up --build   # adds the coordinator and 3 bank clients (Phase 3+)
+```text
+backend/       FastAPI application and database integration
+ai_engine/     Federated learning and fraud detection modules
+frontend/      React and TypeScript application
+database/      Database initialization and seed files
+scripts/       Helper scripts
+config/        Shared configuration
+docs/          Architecture and project documentation
+tests/         Integration and end-to-end tests
 ```
 
-Run tests locally:
+## Core Concepts
 
-```bash
-make test-backend     # cd backend && pip install -r requirements-dev.txt
-make test-ai          # cd ai_engine && pip install -r requirements-dev.txt
-make test-frontend    # cd frontend && npm install
-```
+1. **Federated Learning:** Collaborative model training across simulated banks.
+2. **Privacy Preservation:** Raw bank transaction data is intended to remain local.
+3. **Fraud Detection:** Machine learning models for identifying potentially fraudulent transactions.
+4. **Investigation Platform:** A web interface for investigators to review alerts and related information.
+5. **AI Assistance:** Gemini integration with a rule-based fallback.
 
-## Implementation status
+## Academic Project Limitations
 
-Only what is checked below exists. Nothing is simulated or hardcoded.
+- The institutions and transaction data are simulated.
+- Federated learning does not automatically guarantee complete privacy.
+- Model updates can potentially leak information.
+- Real-world performance and production security have not been established.
 
-- [x] **Phase 1 – Foundation:** folder structure, Docker Compose with per-bank isolation, settings with
-      production safety checks, JWT/bcrypt primitives, DB session, Alembic wiring, health endpoints, privacy
-      guards, frontend shell with API status page, unit/integration tests, CI
-- [ ] **Phase 2 – Auth & data model:** users/roles, alerts, cases, audit log, migrations, auth endpoints
-- [ ] **Phase 3 – Data & federated learning:** synthetic data generator with distinct per-bank distributions,
-      local PyTorch model, Flower server/clients, centralized and local-only baselines (XGBoost) for comparison
-- [ ] **Phase 4 – Evaluation:** PR-AUC/recall at fixed FPR per bank, federated vs local vs pooled comparison
-- [ ] **Phase 5 – Investigation:** NetworkX graph analytics, Captum explanations, alerts and cases UI, Cytoscape graph
-- [ ] **Phase 6 – Assistant:** Gemini gateway grounded on case data, rule-based fallback
-- [ ] **Phase 7 – Hardening:** update clipping + differential-privacy noise, secure aggregation study, RBAC audit
+## Project Status
 
-## Known limitations (by design of the prototype)
+This repository contains the current implementation of an evolving academic project. Some planned components may be incomplete or require additional configuration.
 
-- Federated learning does not by itself guarantee privacy: model updates can leak information
-  (membership inference, gradient inversion). Mitigations are planned in Phase 7 and will be measured, not assumed.
-- All banks run on one machine; network, latency and trust assumptions are simulated.
-- Data is synthetic, so reported metrics say nothing about real-world fraud performance.
+## Disclaimer
+
+FraudGuard AI is an independent academic project. It is not an official product of any bank or financial institution.
