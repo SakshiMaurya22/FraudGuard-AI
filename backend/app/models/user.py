@@ -1,4 +1,3 @@
-
 import enum
 import uuid
 from datetime import datetime
@@ -44,10 +43,10 @@ class User(Base):
 
     role: Mapped[UserRole] = mapped_column(
         Enum(
-    UserRole,
-    name="user_role",
-    values_callable=lambda roles: [role.value for role in roles],
-),
+            UserRole,
+            name="user_role",
+            values_callable=lambda roles: [role.value for role in roles],
+        ),
         default=UserRole.INVESTIGATOR,
         nullable=False,
     )

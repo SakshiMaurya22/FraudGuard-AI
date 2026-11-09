@@ -1,4 +1,5 @@
 """Password hashing (bcrypt) and JWT access tokens (PyJWT)."""
+
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
@@ -26,9 +27,7 @@ def verify_password(password: str, password_hash: str) -> bool:
         return False
 
 
-def create_access_token(
-    subject: str, role: str, expires_delta: timedelta | None = None
-) -> str:
+def create_access_token(subject: str, role: str, expires_delta: timedelta | None = None) -> str:
     settings = get_settings()
     now = datetime.now(UTC)
     expire = now + (expires_delta or timedelta(minutes=settings.access_token_expire_minutes))

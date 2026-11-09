@@ -1,4 +1,4 @@
-﻿from fastapi import APIRouter
+from fastapi import APIRouter
 
 from app.api.v1.endpoints import (
     alerts,
@@ -19,5 +19,3 @@ api_router.include_router(feedback.router)
 api_router.include_router(assistant.router)
 api_router.include_router(cases.router)
 api_router.include_router(predictions.router)
-
-

@@ -1,4 +1,4 @@
-﻿import sys
+import sys
 from pathlib import Path
 from typing import Literal
 
@@ -7,7 +7,6 @@ from pydantic import BaseModel, Field
 
 from app.api.v1.endpoints.auth import get_current_user
 from app.models.user import User
-
 
 PROJECT_ROOT = Path(__file__).resolve().parents[5]
 AI_ENGINE_PATH = PROJECT_ROOT / "ai_engine"
@@ -18,9 +17,7 @@ if str(AI_ENGINE_PATH) not in sys.path:
 try:
     from fraud_ai.models.predict import predict_transaction
 except ImportError as exc:
-    raise RuntimeError(
-        f"Unable to load the fraud prediction engine: {exc}"
-    ) from exc
+    raise RuntimeError(f"Unable to load the fraud prediction engine: {exc}") from exc
 
 
 router = APIRouter(

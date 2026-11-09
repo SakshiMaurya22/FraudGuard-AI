@@ -13,7 +13,7 @@ from app.core.security import (
 
 def test_password_roundtrip_and_salting():
     h1, h2 = hash_password("S3cret-pass"), hash_password("S3cret-pass")
-    assert h1 != h2                       # salted
+    assert h1 != h2  # salted
     assert verify_password("S3cret-pass", h1)
     assert not verify_password("wrong", h1)
 

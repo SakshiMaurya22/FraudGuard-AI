@@ -1,4 +1,3 @@
-
 import uuid
 from datetime import datetime
 
@@ -12,9 +11,8 @@ from app.api.v1.endpoints.auth import get_current_user
 from app.db.session import get_db
 from app.models.alert import Alert
 from app.models.audit_log import AuditLog
-from app.models.feedback import InvestigatorFeedback, FeedbackVerdict
+from app.models.feedback import FeedbackVerdict, InvestigatorFeedback
 from app.models.user import User
-
 
 router = APIRouter(prefix="/feedback", tags=["Investigator Feedback"])
 
@@ -114,9 +112,7 @@ def get_my_feedback(
 ):
     statement = (
         select(InvestigatorFeedback)
-        .where(
-            InvestigatorFeedback.investigator_id == current_user.id
-        )
+        .where(InvestigatorFeedback.investigator_id == current_user.id)
         .order_by(InvestigatorFeedback.created_at.desc())
         .limit(100)
     )

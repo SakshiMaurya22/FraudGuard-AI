@@ -1,12 +1,10 @@
-﻿from fastapi import APIRouter, Depends
-from pydantic import BaseModel, Field
-
+from fastapi import APIRouter, Depends
 from google import genai
+from pydantic import BaseModel, Field
 
 from app.api.v1.endpoints.auth import get_current_user
 from app.core.config import get_settings
 from app.models.user import User
-
 
 router = APIRouter(prefix="/assistant", tags=["AI Assistant"])
 
@@ -91,22 +89,13 @@ def chat(
 ):
     settings = get_settings()
 
-    if (
-        settings.assistant_provider != "rules"
-        and settings.gemini_api_key.strip()
-    ):
+    if settings.assistant_provider != "rules" and settings.gemini_api_key.strip():
         try:
-            client = genai.Client(
-                api_key=settings.gemini_api_key.strip()
-            )
+            client = genai.Client(api_key=settings.gemini_api_key.strip())
 
             response = client.models.generate_content(
                 model=settings.gemini_model,
-                contents=(
-                    SYSTEM_PROMPT
-                    + "\nInvestigator question: "
-                    + payload.message
-                ),
+                contents=(SYSTEM_PROMPT + "\nInvestigator question: " + payload.message),
             )
 
             answer = response.text

@@ -1,8 +1,7 @@
-from datetime import timedelta
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -58,9 +57,7 @@ def register_user(
 ):
     email = str(payload.email).lower()
 
-    existing_user = db.scalar(
-        select(User).where(User.email == email)
-    )
+    existing_user = db.scalar(select(User).where(User.email == email))
 
     if existing_user:
         raise HTTPException(
@@ -89,9 +86,7 @@ def login_user(
 ):
     email = str(payload.email).lower()
 
-    user = db.scalar(
-        select(User).where(User.email == email)
-    )
+    user = db.scalar(select(User).where(User.email == email))
 
     if not user or not verify_password(
         payload.password,
@@ -140,6 +135,8 @@ def get_current_user(
         raise credentials_error
 
     return user
+
+
 @router.get("/me", response_model=UserResponse)
 def read_current_user(
     current_user: User = Depends(get_current_user),

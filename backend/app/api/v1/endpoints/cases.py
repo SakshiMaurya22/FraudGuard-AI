@@ -1,5 +1,5 @@
-﻿import uuid
-from datetime import datetime, timezone
+import uuid
+from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, ConfigDict, Field
@@ -12,7 +12,6 @@ from app.models.alert import Alert, AlertSeverity, AlertStatus
 from app.models.audit_log import AuditLog
 from app.models.case import Case, CasePriority, CaseStatus
 from app.models.user import User
-
 
 router = APIRouter(
     prefix="/cases",
@@ -204,7 +203,7 @@ def update_case(
     if "status" in changes:
         if case.status == CaseStatus.CLOSED:
             if case.closed_at is None:
-                case.closed_at = datetime.now(timezone.utc)
+                case.closed_at = datetime.now(UTC)
         else:
             case.closed_at = None
 

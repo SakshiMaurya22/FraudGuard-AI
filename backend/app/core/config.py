@@ -1,4 +1,5 @@
 """Application settings, loaded from environment variables (see .env.example)."""
+
 from functools import lru_cache
 from typing import Literal
 

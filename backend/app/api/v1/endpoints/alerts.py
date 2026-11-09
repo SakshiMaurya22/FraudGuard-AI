@@ -1,9 +1,8 @@
-
 import uuid
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -12,7 +11,6 @@ from app.db.session import get_db
 from app.models.alert import Alert, AlertSeverity, AlertStatus
 from app.models.audit_log import AuditLog
 from app.models.user import User
-
 
 router = APIRouter(
     prefix="/alerts",

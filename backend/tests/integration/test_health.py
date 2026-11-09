@@ -37,6 +37,7 @@ def test_readiness_returns_503_when_database_down():
     class BrokenSession:
         def execute(self, *a, **k):
             from sqlalchemy.exc import OperationalError
+
             raise OperationalError("SELECT 1", {}, Exception("connection refused"))
 
     app.dependency_overrides[get_db] = lambda: BrokenSession()
