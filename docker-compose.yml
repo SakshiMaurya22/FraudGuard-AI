@@ -1,0 +1,116 @@
+# Federated AI Fraud Detection Platform
+#
+#   docker compose up --build                       -> postgres + backend + frontend
+#   docker compose --profile federated up --build   -> + Flower coordinator and 3 bank clients
+#
+# PRIVACY BOUNDARY (enforced by volume mounts):
+#   * each fl-client-<bank> mounts ONLY its own data directory (read-only)
+#   * fl-server mounts ONLY the model registry; it has no path to any bank data
+#   * only model parameter updates travel between clients and the coordinator
+
+name: federated-fraud
+
+x-ai-engine: &ai-engine
+  build:
+    context: ./ai_engine
+  env_file: .env
+  restart: "no"
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./database/init:/docker-entrypoint-initdb.d:ro
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build:
+      context: ./backend
+    env_file: .env
+    command: >
+      sh -c "alembic upgrade head &&
+             uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
+    volumes:
+      - ./backend:/app
+      - model_registry:/registry:ro      # read-only: backend never writes models
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: ./frontend
+      target: dev
+    environment:
+      VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:8000/api/v1}
+    volumes:
+      - ./frontend:/app
+      - frontend_node_modules:/app/node_modules
+    ports:
+      - "5173:5173"
+    depends_on:
+      - backend
+
+  # ---------------- Federated learning (profile: federated) ----------------
+  fl-server:
+    <<: *ai-engine
+    profiles: ["federated"]
+    command: ["python", "-m", "fraud_ai.federated.server"]
+    volumes:
+      - model_registry:/registry           # coordinator: registry only, no bank data
+    expose:
+      - "8080"
+
+  fl-client-alpha:
+    <<: *ai-engine
+    profiles: ["federated"]
+    command: ["python", "-m", "fraud_ai.federated.client"]
+    environment:
+      BANK_ID: alpha
+    volumes:
+      - ./ai_engine/data/banks/alpha:/app/data/local:ro   # Bank Alpha data only
+      - alpha_state:/app/state
+    depends_on: [fl-server]
+
+  fl-client-beta:
+    <<: *ai-engine
+    profiles: ["federated"]
+    command: ["python", "-m", "fraud_ai.federated.client"]
+    environment:
+      BANK_ID: beta
+    volumes:
+      - ./ai_engine/data/banks/beta:/app/data/local:ro    # Bank Beta data only
+      - beta_state:/app/state
+    depends_on: [fl-server]
+
+  fl-client-gamma:
+    <<: *ai-engine
+    profiles: ["federated"]
+    command: ["python", "-m", "fraud_ai.federated.client"]
+    environment:
+      BANK_ID: gamma
+    volumes:
+      - ./ai_engine/data/banks/gamma:/app/data/local:ro   # Bank Gamma data only
+      - gamma_state:/app/state
+    depends_on: [fl-server]
+
+volumes:
+  pgdata:
+  model_registry:
+  frontend_node_modules:
+  alpha_state:
+  beta_state:
+  gamma_state:

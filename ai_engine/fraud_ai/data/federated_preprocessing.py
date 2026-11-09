@@ -1,0 +1,208 @@
+﻿
+"""Deterministic preprocessing shared by all federated bank clients."""
+
+import numpy as np
+import pandas as pd
+from sklearn.model_selection import train_test_split
+
+
+TARGET_COLUMN = "is_fraud"
+
+NUMERIC_FEATURES = [
+    "amount",
+    "hour",
+    "day_of_week",
+    "device_trusted",
+    "country_mismatch",
+    "recent_transaction_count",
+    "average_historical_amount",
+    "distance_from_home_km",
+    "night_transaction",
+]
+
+MERCHANT_CATEGORIES = (
+    "grocery", "fuel", "shopping", "travel",
+    "restaurant", "electronics", "online_services",
+)
+
+PAYMENT_CHANNELS = (
+    "card", "online", "mobile", "bank_transfer",
+)
+
+CATEGORICAL_FEATURES = [
+    "merchant_category",
+    "payment_channel",
+]
+
+FEATURE_NAMES = (
+    NUMERIC_FEATURES
+    + [f"merchant_category={value}" for value in MERCHANT_CATEGORIES]
+    + [f"payment_channel={value}" for value in PAYMENT_CHANNELS]
+)
+
+REQUIRED_COLUMNS = NUMERIC_FEATURES + CATEGORICAL_FEATURES + [TARGET_COLUMN]
+
+
+def transform_features(dataframe: pd.DataFrame) -> np.ndarray:
+    """Apply identical fixed transformations without fitting bank-specific statistics."""
+
+    missing = set(REQUIRED_COLUMNS) - set(dataframe.columns)
+    missing.discard(TARGET_COLUMN)
+
+    if missing:
+        raise ValueError(f"Missing feature columns: {sorted(missing)}")
+
+    numeric = dataframe[NUMERIC_FEATURES].apply(
+        pd.to_numeric, errors="raise"
+    ).to_numpy(dtype=np.float64)
+
+    if not np.isfinite(numeric).all():
+        raise ValueError("Features contain NaN or infinite values")
+
+    values = dataframe[NUMERIC_FEATURES]
+
+    if (
+        values[
+            [
+                "amount",
+                "recent_transaction_count",
+                "average_historical_amount",
+                "distance_from_home_km",
+            ]
+        ] < 0
+    ).any().any():
+        raise ValueError("Amount, counts and distances cannot be negative")
+
+    if not values["hour"].between(0, 23).all():
+        raise ValueError("hour must be between 0 and 23")
+
+    if not values["day_of_week"].between(0, 6).all():
+        raise ValueError("day_of_week must be between 0 and 6")
+
+    for column in [
+        "device_trusted",
+        "country_mismatch",
+        "night_transaction",
+    ]:
+        if not values[column].isin([0, 1]).all():
+            raise ValueError(f"{column} must contain only 0 or 1")
+
+    # Fixed transformations: no statistics are learned from any bank.
+    numeric[:, 0] = np.clip(np.log1p(numeric[:, 0]) / 10.0, 0.0, 1.0)
+    numeric[:, 1] = numeric[:, 1] / 23.0
+    numeric[:, 2] = numeric[:, 2] / 6.0
+    numeric[:, 5] = np.clip(numeric[:, 5] / 15.0, 0.0, 1.0)
+    numeric[:, 6] = np.clip(np.log1p(numeric[:, 6]) / 10.0, 0.0, 1.0)
+    numeric[:, 7] = np.clip(np.log1p(numeric[:, 7]) / 8.0, 0.0, 1.0)
+
+    merchant = dataframe["merchant_category"]
+    channel = dataframe["payment_channel"]
+
+    unknown_merchants = (
+        set(merchant.dropna().unique()) - set(MERCHANT_CATEGORIES)
+    )
+    unknown_channels = (
+        set(channel.dropna().unique()) - set(PAYMENT_CHANNELS)
+    )
+
+    if merchant.isna().any() or unknown_merchants:
+        raise ValueError(
+            f"Unknown or missing merchant categories: {unknown_merchants}"
+        )
+
+    if channel.isna().any() or unknown_channels:
+        raise ValueError(
+            f"Unknown or missing payment channels: {unknown_channels}"
+        )
+
+    merchant_encoded = np.column_stack([
+        (merchant.to_numpy() == category).astype(np.float32)
+        for category in MERCHANT_CATEGORIES
+    ])
+
+    channel_encoded = np.column_stack([
+        (channel.to_numpy() == category).astype(np.float32)
+        for category in PAYMENT_CHANNELS
+    ])
+
+    result = np.column_stack([
+        numeric.astype(np.float32),
+        merchant_encoded,
+        channel_encoded,
+    ]).astype(np.float32)
+
+    if result.shape[1] != len(FEATURE_NAMES):
+        raise RuntimeError(
+            "Federated feature dimension does not match feature names"
+        )
+
+    return result
+
+
+def prepare_federated_data(
+    dataframe: pd.DataFrame,
+    test_size: float = 0.20,
+    validation_size: float = 0.20,
+    random_state: int = 42,
+) -> dict:
+    """Split local bank data into training, validation and test sets."""
+
+    missing = set(REQUIRED_COLUMNS) - set(dataframe.columns)
+
+    if missing:
+        raise ValueError(
+            f"Dataset is missing columns: {sorted(missing)}"
+        )
+
+    if not 0 < test_size < 1:
+        raise ValueError("test_size must be between 0 and 1")
+
+    if not 0 < validation_size < 1:
+        raise ValueError("validation_size must be between 0 and 1")
+
+    if test_size + validation_size >= 1:
+        raise ValueError(
+            "Combined validation and test sizes must be below 1"
+        )
+
+    labels = set(dataframe[TARGET_COLUMN].dropna().unique())
+
+    if dataframe[TARGET_COLUMN].isna().any() or labels != {0, 1}:
+        raise ValueError(
+            "Fraud labels must contain both 0 and 1 with no missing values"
+        )
+
+    X = dataframe[NUMERIC_FEATURES + CATEGORICAL_FEATURES].copy()
+    y = dataframe[TARGET_COLUMN].astype("int64").to_numpy()
+
+    # First separate the untouched test set.
+    X_train_val, X_test, y_train_val, y_test = train_test_split(
+        X,
+        y,
+        test_size=test_size,
+        random_state=random_state,
+        stratify=y,
+    )
+
+    # Then separate validation data from the remaining training data.
+    relative_validation_size = validation_size / (1 - test_size)
+
+    X_train, X_val, y_train, y_val = train_test_split(
+        X_train_val,
+        y_train_val,
+        test_size=relative_validation_size,
+        random_state=random_state,
+        stratify=y_train_val,
+    )
+
+    return {
+        "X_train": transform_features(X_train),
+        "X_val": transform_features(X_val),
+        "X_test": transform_features(X_test),
+
+        "y_train": y_train.astype(np.float32),
+        "y_val": y_val.astype(np.float32),
+        "y_test": y_test.astype(np.float32),
+
+        "feature_names": FEATURE_NAMES,
+    }

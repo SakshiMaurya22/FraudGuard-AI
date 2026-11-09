@@ -1,0 +1,6 @@
+# Defaults for the federated simulation. Environment variables (FL_*) override these.
+rounds: 10
+min_clients: 3
+local_epochs: 2
+seed: 42
+banks: [alpha, beta, gamma]

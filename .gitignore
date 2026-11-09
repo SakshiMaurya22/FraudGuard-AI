@@ -1,0 +1,71 @@
+# Secrets / env
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Node
+node_modules/
+frontend/dist/
+frontend/coverage/
+*.tsbuildinfo
+
+# ---- Federated-learning privacy boundary ----
+# Bank-local data must never be committed or shared.
+ai_engine/data/banks/*/*
+!ai_engine/data/banks/*/.gitkeep
+# Trained models, checkpoints and run outputs are build artifacts
+ai_engine/artifacts/*
+!ai_engine/artifacts/.gitkeep
+*.pt
+*.pth
+*.ckpt
+*.parquet
+
+# Local DB / OS / IDE
+*.sqlite3
+*.db
+.DS_Store
+.idea/
+.vscode/
+*.log
+
+*.bak
+
+*.bak
+
+# Sensitive files
+.env
+.env.*
+!.env.example
+**/auth-token-temp.txt
+**/__pycache__/
+**/.venv/
+.venv/
+node_modules/
+**/node_modules/
+*.pyc
+
+
+# Sensitive files
+.env
+.env.*
+!.env.example
+**/auth-token-temp.txt
+**/__pycache__/
+**/.venv/
+.venv/
+node_modules/
+**/node_modules/
+*.pyc
